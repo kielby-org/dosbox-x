@@ -4761,7 +4761,6 @@ Bitu DEBUG_Loop(void) {
             DEBUG_DrawScreen();
         }
 
-        DEBUG_TCP_Poll();
         return old_loop();
     }
     else {
@@ -4825,7 +4824,6 @@ Bitu DEBUG_Loop(void) {
             DEBUG_RefreshPage(0);
         }
 
-        DEBUG_TCP_Poll();
     	return DEBUG_CheckKeys();
     }
 }

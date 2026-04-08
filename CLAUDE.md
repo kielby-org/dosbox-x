@@ -23,13 +23,46 @@ Alternative approaches (GDB stubs, Bochs) were evaluated and rejected:
 ```
 External Client  <--TCP-->  DOSBox-X (this fork)
 (MCP server,                debug_tcp module
- telnet, etc.)              polls alongside ncurses input
+ telnet, etc.)              polls in GFX_Events() (always running)
                             routes commands to ParseCommand()
+                            captures DEBUG_ShowMsg output
                             returns text responses
 ```
 
-**No threading required.** The debugger already uses non-blocking input polling (`getch()`
-with `nodelay()`). TCP recv() is added to the same polling loop.
+**No threading required.** TCP polling happens in `GFX_Events()` which runs every frame
+regardless of debugger state. When debugger is not active, commands get an error response.
+When active, commands route through `ParseCommand()` and output is captured.
+
+### TCP Module: `src/debug/debug_tcp.cpp`
+
+| Function | Purpose |
+|----------|---------|
+| `DEBUG_TCP_Init()` | Read config, create TCP listener. Called from `DEBUG_Init()`. |
+| `DEBUG_TCP_Shutdown()` | Close sockets. Called from `DEBUG_ShutDown()`. |
+| `DEBUG_TCP_Poll()` | Accept connections, read bytes, process commands. Called from `GFX_Events()`. |
+| `DEBUG_TCP_CaptureMsg()` | Buffer a DEBUG_ShowMsg line during command processing. |
+| `DEBUG_TCP_IsCapturing()` | True while a TCP command is being processed. |
+
+### Response Capture Design
+
+`ParseCommand()` produces output via `DEBUG_ShowMsg()`, which normally writes to ncurses.
+During TCP command processing:
+1. `capturing_response` flag is set
+2. `DEBUG_ShowMsg()` checks `DEBUG_TCP_IsCapturing()` early — if true, formats the
+   message, appends to capture buffer, writes to log file, then **returns before
+   ncurses** (avoids `wrefresh()` blocking when debugger window is in a bad state)
+3. After `ParseCommand()` returns, captured output + `---END---\n` is sent to client
+
+**Known limitation:** `ParseCommand` can call ncurses functions directly (e.g.
+`DrawCode()`, `DrawRegisters()`) which are NOT intercepted. These may block if the
+debugger window isn't in a good state. Commands that only produce `DEBUG_ShowMsg`
+output work reliably; commands that redraw the UI may not.
+
+### Safety
+
+- `PING` command bypasses debugger state (connection testing)
+- No authentication — bind to localhost only in production
+- Guard: `#if C_DEBUG && C_MODEM` (requires both debugger and SDL_net)
 
 ## Key Source Files
 
@@ -39,9 +72,10 @@ with `nodelay()`). TCP recv() is added to the same polling loop.
 |--------|------|---------|
 | `ParseCommand(char* str)` | ~1906 | Command dispatcher — 105+ commands, sequential if/else |
 | `DEBUG_Loop()` | ~4753 | Main debugger loop — polls input, updates display |
-| `DEBUG_CheckKeys()` | ~4310 | Input polling — `getch()` at line 4314. **TCP poll goes here.** |
-| `DEBUG_Init()` | ~5663 | Initialization. **TCP listener init goes after line 5670.** |
-| `DEBUG_ShutDown()` | ~5634 | Cleanup. **TCP socket cleanup goes here.** |
+| `DEBUG_CheckKeys()` | ~4310 | Input polling — `getch()` at line 4314 |
+| `DEBUG_Init()` | ~5663 | Initialization — calls `DEBUG_TCP_Init()` |
+| `DEBUG_ShutDown()` | ~5634 | Cleanup — calls `DEBUG_TCP_Shutdown()` |
+| `IsDebuggerActive()` | ~345 | Returns true when debugger is paused/active |
 | `DEBUG_ShowMsg()` | various | Output to ncurses log window (228 call sites) |
 | `DrawRegisters()` | ~1135 | Formats register values to ncurses window |
 | `DrawData()` | ~994 | Memory display |
@@ -102,12 +136,13 @@ these existing workflows validate our changes across all platforms.
 
 ## Config
 
-No `[debug]` config section exists yet. The `debuggerrun` option lives in `[log]`
-(debug_gui.cpp:1016). Our TCP port setting needs to be registered somewhere — either:
-- Add to existing `[log]` section (simpler, follows existing pattern)
-- Create new `[debug]` section (cleaner separation)
+TCP debug port is registered in the `[log]` section (debug_gui.cpp) as `tcp_debug_port`.
+Default is 0 (disabled).
 
-Command-line override: `-set log:tcp_debug_port=12345` (or `debug:` if new section)
+Command-line override: `-set "log tcp_debug_port=12345"` (note: space, not colon)
+
+Other relevant config: `debuggerrun` in `[log]` — controls debugger start mode
+(debugger/normal/watch).
 
 ## TCP Protocol (Plain Text, Request-Response)
 
@@ -127,6 +162,33 @@ Command-line override: `-set log:tcp_debug_port=12345` (or `debug:` if new secti
 5. **Follow existing patterns.** Config registration, socket usage, file organization
    should match what DOSBox-X already does.
 
+## Working Process
+
+### Git & Commits
+- **Never amend commits.** Always create new, separate commits for follow-up changes.
+- **Review before commit.** Show the user a summary of changes (files modified, key diffs)
+  and wait for approval before running `git commit`. Do not commit autonomously.
+- **Update CLAUDE.md status** when completing a task — move items from Next to Completed.
+
+### Code Style
+- **Match local OS line endings** in new files. Git checks out files with the local OS
+  convention (CRLF on Windows, LF on Linux/macOS). The Write tool may create files with
+  LF regardless of OS. After creating files, verify with `file <path>` and convert if
+  needed (`unix2dos` on Windows, `dos2unix` on Linux/macOS).
+
+### Task Workflow
+1. Plan the task (use plan mode for non-trivial work)
+2. Implement the changes
+3. Build locally (`/build`)
+4. Show changes to user for review
+5. User approves → commit and push
+6. Trigger CI if appropriate (`/ci run`)
+
+### Skills Available
+- `/build` — local VS build (debug/release, x64/x86, SDL1/SDL2, clean/rebuild)
+- `/ci` — GitHub Actions CI (trigger runs, check status, enable/disable workflows)
+- `/test` — launch, test, and manage DOSBox-X (smoke test, unit tests, process lifecycle)
+
 ## Local Build
 
 ```bash
@@ -140,50 +202,33 @@ Output binary: `bin/x64/Debug/dosbox-x.exe`
 
 After building, verify the TCP debug interface works end-to-end:
 
-**Important:** The `-set` format uses spaces, not colons: `-set "log tcp_debug_port=12345"`
+Use `/test smoke` to run the automated smoke test, or test manually:
 
-### 1. Start DOSBox-X with TCP debug enabled and debugger active
+**Always use** `-defaultconf` (ignores user config) and `-console` (shows log window).
+
+### Without debugger active
 ```bash
-# From repo root — port 12345, break into debugger at startup
-bin/x64/Debug/dosbox-x.exe -set "log tcp_debug_port=12345" -break-start
+bin/x64/Debug/dosbox-x.exe -defaultconf -console -set "log tcp_debug_port=12345"
 ```
-DOSBox-X will open with the debugger console. Look for `DEBUG_TCP: Listening on port 12345` in the log output.
+- `PING` → `PONG\n---END---\n`
+- `HELP` → `ERROR: Debugger not active...\n---END---\n`
+- `QUIT` → DOSBox-X exits
 
-**Note:** TCP commands are only processed when the debugger loop is active (paused in debugger). Use `-break-start` to activate the debugger at startup, or press Alt+Pause during execution.
-
-### 2. Connect from another terminal
+### With debugger active
 ```bash
-# Using Python (netcat/telnet may not be available on Windows)
-python -c "
-import socket
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.settimeout(5)
-s.connect(('127.0.0.1', 12345))
-s.sendall(b'HELP\n')
-data = b''
-while True:
-    chunk = s.recv(4096)
-    if not chunk: break
-    data += chunk
-    if b'---END---' in data: break
-print(data.decode())
-s.close()
-"
+# On Windows, use `start` so debugger gets its own console window:
+start "DOSBox" bin\x64\Debug\dosbox-x.exe -defaultconf -console -set "log tcp_debug_port=12345" -break-start
 ```
+- `PING` → `PONG\n---END---\n`
+- `HELP` → full debugger help text + `---END---\n`
+- `QUIT` → DOSBox-X exits
+- Unknown command → `ERROR: Unknown command\n---END---\n`
 
-### 3. Expected behavior
-- `HELP` → debugger help text followed by `---END---`
-- Any valid debugger command → output followed by `---END---`
-- Unknown command → `ERROR: Unknown command\n---END---`
-
-### 4. Verify
-- Commands produce text responses terminated by `---END---\n`
-- The ncurses debugger still works (keyboard input alongside TCP)
-- Disconnecting the TCP client doesn't crash DOSBox-X
-- Reconnecting works after disconnect
-
-### 5. Shutdown
-Close DOSBox-X normally (type `QUIT` in debugger or close the window).
+### Known limitations
+- `ParseCommand` can call ncurses directly (DrawCode, DrawRegisters) — these calls
+  aren't intercepted and may block if the debugger window is in a bad state
+- `SendArray` doesn't handle partial sends — very large responses could truncate
+- No authentication — anyone who can connect to the port can send commands
 
 ## Status
 
@@ -198,7 +243,7 @@ Close DOSBox-X normally (type `QUIT` in debugger or close the window).
 - [x] Add stub `debug_tcp.cpp` + header (compiles, no functionality)
 - [x] Add to Makefile.am, VS project, and VS filters
 - [x] Verify CI green with stub
-- [x] Implement TCP listener (accept connection on configured port) — config `log:tcp_debug_port`, single-client, response capture via DEBUG_ShowMsg hook
+- [x] Implement TCP listener — config `log tcp_debug_port`, single-client, response capture, PING, debugger-state-aware responses
 - [ ] Implement command routing (STATUS, REGS, BP, STEP, RUN)
 - [ ] Implement input injection (SENDKEY, SENDMOUSE, SENDCLICK)
 - [ ] Build MCP server (Python, `mcp-server/` directory)

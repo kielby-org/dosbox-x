@@ -698,6 +698,21 @@ void DEBUG_ShowMsg(char const* format,...) {
     if (format==NULL || (log_dev_con == 2 && !logging_con) || control->opt_nolog) return;
     in_debug_showmsg = true;
 
+    /* TCP debug response capture — format the message, capture it, then skip
+     * ncurses output to avoid blocking on wrefresh(). We still write to log
+     * file and stderr below before returning. We also skip the CPU_Cycles
+     * perturbation since TCP-originated messages shouldn't affect timing. */
+    if (DEBUG_TCP_IsCapturing()) {
+        va_start(msg,format);
+        len = (size_t)vsnprintf(buf,sizeof(buf)-2u,format,msg);
+        va_end(msg);
+        while (len > 0 && buf[len-1] == '\n') buf[--len] = 0;
+        DEBUG_TCP_CaptureMsg(buf);
+        if (debuglog != NULL) { fprintf(debuglog,"%s\n",buf); fflush(debuglog); }
+        in_debug_showmsg = false;
+        return;
+    }
+
     // in case of runaway error from the CPU core, user responsiveness can be helpful
     CPU_CycleLeft += CPU_Cycles;
     CPU_Cycles = 0;
@@ -713,9 +728,6 @@ void DEBUG_ShowMsg(char const* format,...) {
 
     /* remove newlines if present */
     while (len > 0 && buf[len-1] == '\n') buf[--len] = 0;
-
-    /* TCP debug response capture */
-    DEBUG_TCP_CaptureMsg(buf);
 
 #if C_DEBUG
 	if (dbg.win_out != NULL)

@@ -137,6 +137,7 @@ char* revert_escape_newlines(const char* aMessage);
 #include "callback.h"
 #include "support.h"
 #include "debug.h"
+#include "../debug/debug_tcp.h"
 #include "ide.h"
 #include "bitop.h"
 #include "ptrop.h"
@@ -5875,6 +5876,9 @@ bool gfx_in_mapper = false;
 #endif
 
 void GFX_Events() {
+#if C_DEBUG
+    DEBUG_TCP_Poll();
+#endif
     CheckMapperKeyboardLayout();
 #if defined(C_SDL2) /* SDL 2.x---------------------------------- */
     //Don't poll too often. This can be heavy on the OS, especially Macs.

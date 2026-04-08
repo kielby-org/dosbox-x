@@ -12,7 +12,8 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(git commit:*)",
-      "Bash(unix2dos src/debug/debug_tcp.cpp src/debug/debug_tcp.h)"
+      "Bash(unix2dos src/debug/debug_tcp.cpp src/debug/debug_tcp.h)",
+      "Bash(taskkill //F //IM dosbox-x.exe)"
     ]
   }
 }

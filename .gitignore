@@ -37,6 +37,11 @@ windows-installer/DOSBox-X-setup-*.zip
 
 make-rpm.sh
 contrib/linux/dosbox-x.spec
+
+# MCP server Python artifacts
+mcp-server/.venv/
+mcp-server/__pycache__/
+mcp-server/*.egg-info/
 contrib/linux/com.dosbox_x.DOSBox-X.metainfo.xml
 
 \!DosBox-X/*,ff8

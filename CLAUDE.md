@@ -270,4 +270,4 @@ start "DOSBox" bin\x64\Debug\dosbox-x.exe -defaultconf -console -set "log tcp_de
 - [x] Implement TCP listener — config `log tcp_debug_port`, single-client, response capture, PING, debugger-state-aware responses
 - [x] Implement command routing — STATUS, REGS as built-in TCP commands; all other debugger commands pass through ParseCommand
 - [x] Implement input injection — SENDKEY, SENDCLICK, SENDMOUSE; work regardless of debugger state
-- [ ] Build MCP server (Python, `mcp-server/` directory)
+- [x] Build MCP server (Python, `mcp-server/` directory)

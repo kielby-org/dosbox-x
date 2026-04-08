@@ -1,0 +1,12 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dosbox-x-mcp"
+version = "0.1.0"
+description = "MCP server for DOSBox-X debugger control via TCP"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.8,<2.0",
+]

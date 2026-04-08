@@ -13,7 +13,9 @@
       "Bash(git commit -m ':*)",
       "Bash(git commit:*)",
       "Bash(unix2dos src/debug/debug_tcp.cpp src/debug/debug_tcp.h)",
-      "Bash(taskkill //F //IM dosbox-x.exe)"
+      "Bash(taskkill //F //IM dosbox-x.exe)",
+      "Bash(unix2dos /c/Projects/dosbox-x/mcp-server/pyproject.toml /c/Projects/dosbox-x/mcp-server/dosbox_x_mcp.py)",
+      "Bash(uv run:*)"
     ]
   }
 }

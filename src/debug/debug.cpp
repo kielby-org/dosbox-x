@@ -50,6 +50,7 @@ using namespace std;
 #include "../cpu/lazyflags.h"
 #include "keyboard.h"
 #include "control.h"
+#include "debug_tcp.h"
 
 bool Clear_SYSENTER_Debug();
 bool Toggle_BreakSYSEnter();
@@ -4823,6 +4824,7 @@ Bitu DEBUG_Loop(void) {
             DEBUG_RefreshPage(0);
         }
 
+        DEBUG_TCP_Poll();
     	return DEBUG_CheckKeys();
     }
 }
@@ -5632,6 +5634,7 @@ void DEBUG_SetupConsole(void) {
 }
 
 void DEBUG_ShutDown(Section * /*sec*/) {
+	DEBUG_TCP_Shutdown();
 	CBreakpoint::DeleteAll();
 	CDebugVar::DeleteAll();
 	if (dbg.win_main != NULL) {
@@ -5671,6 +5674,9 @@ void DEBUG_Init() {
 
 	/* shutdown function */
 	AddExitFunction(AddExitFunctionFuncPair(DEBUG_ShutDown));
+
+	/* TCP debug interface */
+	DEBUG_TCP_Init();
 }
 
 // DEBUGGING VAR STUFF

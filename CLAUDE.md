@@ -127,6 +127,52 @@ Command-line override: `-set log:tcp_debug_port=12345` (or `debug:` if new secti
 5. **Follow existing patterns.** Config registration, socket usage, file organization
    should match what DOSBox-X already does.
 
+## Local Build
+
+```bash
+# Incremental debug x64 build (default)
+cmd.exe //c "C:\\Projects\\dosbox-x\\.claude\\skills\\build\\build.cmd" "Debug" "x64" "dosbox-x"
+```
+
+Output binary: `bin/x64/Debug/dosbox-x.exe`
+
+## Runtime Smoke Test (TCP Debug Interface)
+
+After building, verify the TCP debug interface works end-to-end:
+
+### 1. Start DOSBox-X with TCP debug enabled
+```bash
+# From repo root — port 12345, start in debugger mode
+bin/x64/Debug/dosbox-x.exe -set log:tcp_debug_port=12345 -set log:debuggerrun=debugger
+```
+DOSBox-X will open with the debugger window. The TCP listener should be active on port 12345.
+
+### 2. Connect from another terminal
+```bash
+# Using netcat (or telnet)
+nc localhost 12345
+```
+
+### 3. Send test commands
+```
+HELP
+```
+Expected: debugger help text followed by `---END---`
+
+```
+STATUS
+```
+Expected: register dump or status info followed by `---END---`
+
+### 4. Verify
+- Commands produce text responses terminated by `---END---\n`
+- The ncurses debugger still works (keyboard input alongside TCP)
+- Disconnecting the TCP client doesn't crash DOSBox-X
+- Reconnecting works after disconnect
+
+### 5. Shutdown
+Close DOSBox-X normally (type `QUIT` in debugger or close the window).
+
 ## Status
 
 ### Completed
@@ -139,8 +185,8 @@ Command-line override: `-set log:tcp_debug_port=12345` (or `debug:` if new secti
 - [x] Trigger CI on fork to verify baseline builds pass (linux, vsbuild64, vsbuild32 enabled; others disabled to save minutes)
 - [x] Add stub `debug_tcp.cpp` + header (compiles, no functionality)
 - [x] Add to Makefile.am, VS project, and VS filters
-- [x] Verify CI green with stub (pending — CI triggered, local build verified)
-- [ ] Implement TCP listener (accept connection on configured port)
+- [x] Verify CI green with stub
+- [x] Implement TCP listener (accept connection on configured port) — config `log:tcp_debug_port`, single-client, response capture via DEBUG_ShowMsg hook
 - [ ] Implement command routing (STATUS, REGS, BP, STEP, RUN)
 - [ ] Implement input injection (SENDKEY, SENDMOUSE, SENDCLICK)
 - [ ] Build MCP server (Python, `mcp-server/` directory)

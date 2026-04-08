@@ -35,6 +35,7 @@
 #include "menu.h"
 #include "debug.h"
 #include "debug_inc.h"
+#include "debug_tcp.h"
 #include "pic.h"
 
 #include <stdexcept>
@@ -713,6 +714,9 @@ void DEBUG_ShowMsg(char const* format,...) {
     /* remove newlines if present */
     while (len > 0 && buf[len-1] == '\n') buf[--len] = 0;
 
+    /* TCP debug response capture */
+    DEBUG_TCP_CaptureMsg(buf);
+
 #if C_DEBUG
 	if (dbg.win_out != NULL)
 		stderrlog = false;
@@ -1041,4 +1045,7 @@ void LOG::SetupConfigSection(void) {
 	Pstring->Set_help("The run mode when the DOSBox-X Debugger starts.");
 	Pstring->Set_values(debuggerrunopt);
 	Pstring->SetBasic(true);
+
+	Prop_int* Pint = sect->Add_int("tcp_debug_port",Property::Changeable::OnlyAtStart,0);
+	Pint->Set_help("TCP port for remote debugger interface (0 = disabled). External tools can connect and send debugger commands.");
 }

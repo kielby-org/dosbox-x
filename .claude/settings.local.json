@@ -7,7 +7,12 @@
       "Bash(where msbuild:*)",
       "Read(//c/Program Files/Microsoft Visual Studio/**)",
       "Read(//c/Program Files \\(x86\\)/Microsoft Visual Studio/**)",
-      "Bash(gh --version)"
+      "Bash(gh --version)",
+      "Bash(cmd.exe //c \"C:\\\\\\\\Projects\\\\\\\\dosbox-x\\\\\\\\.claude\\\\\\\\skills\\\\\\\\build\\\\\\\\build.cmd\" \"Debug\" \"x64\" \"dosbox-x\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git commit:*)",
+      "Bash(unix2dos src/debug/debug_tcp.cpp src/debug/debug_tcp.h)"
     ]
   }
 }

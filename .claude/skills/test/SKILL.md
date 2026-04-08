@@ -93,71 +93,77 @@ Report whether the process started successfully.
 Launch with TCP debug enabled and run automated tests. This covers both the
 "debugger not active" and "debugger active" cases.
 
+The smoke test uses a Python helper function to send commands and check responses.
+Run each step's bash block sequentially.
+
 **Step 1: Kill any existing instance**
 ```bash
 taskkill //F //IM dosbox-x.exe 2>/dev/null; sleep 1
 ```
 
-**Step 2: Launch without debugger and test "not active" response**
+**Step 2: Launch without debugger and test "not active" responses**
 ```bash
 bin/x64/Debug/dosbox-x.exe -defaultconf -console -set "log tcp_debug_port=12345" &
 sleep 6
 python -c "
 import socket
+def test(s, cmd, expect):
+    s.sendall(cmd.encode() + b'\n')
+    data = b''
+    while b'---END---' not in data: data += s.recv(4096)
+    resp = data.decode()
+    ok = expect in resp
+    print('  %s: %s -> %s' % ('PASS' if ok else 'FAIL', cmd, expect))
+    if not ok: print('    GOT:', repr(resp[:200]))
+    return ok
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.settimeout(3)
 s.connect(('127.0.0.1', 12345))
-print('PASS: Connected to TCP debug port')
-s.sendall(b'HELP\n')
-data = b''
-while True:
-    chunk = s.recv(4096)
-    if not chunk: break
-    data += chunk
-    if b'---END---' in data: break
-response = data.decode()
-if 'Debugger not active' in response:
-    print('PASS: Got expected debugger-not-active response')
-else:
-    print('UNEXPECTED:', repr(response))
+print('PASS: Connected')
+test(s, 'PING', 'PONG')
+test(s, 'STATUS', 'debugger=inactive')
+test(s, 'HELP', 'Debugger not active')
+test(s, 'REGS', 'Debugger not active')
 s.close()
-"
+" 2>&1 | grep -E "PASS|FAIL"
 ```
-Expected: `PASS: Connected` and `PASS: Got expected debugger-not-active response`
+Expected: all PASS.
 
-**Step 3: Kill and relaunch with debugger active (interactive only)**
+**Step 3: Kill and relaunch with debugger active**
 
-This step requires an interactive terminal (the debugger console needs a real TTY).
-Skip in headless environments.
-
+On Windows, use the run_debug.cmd helper to launch with its own console window
+(required for the ncurses debugger):
 ```bash
 taskkill //F //IM dosbox-x.exe 2>/dev/null; sleep 1
-bin/x64/Debug/dosbox-x.exe -defaultconf -console -set "log tcp_debug_port=12345" -break-start
-```
-Then from another terminal:
-```bash
+cmd.exe //c "C:\\Projects\\dosbox-x\\.claude\\skills\\test\\run_debug.cmd" 2>&1
+sleep 8
 python -c "
 import socket
+def test(s, cmd, expect):
+    s.sendall(cmd.encode() + b'\n')
+    data = b''
+    while b'---END---' not in data: data += s.recv(4096)
+    resp = data.decode()
+    ok = expect in resp
+    print('  %s: %s -> %s' % ('PASS' if ok else 'FAIL', cmd, expect))
+    if not ok: print('    GOT:', repr(resp[:200]))
+    return ok
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.settimeout(5)
 s.connect(('127.0.0.1', 12345))
-s.sendall(b'HELP\n')
-data = b''
-while True:
-    chunk = s.recv(4096)
-    if not chunk: break
-    data += chunk
-    if b'---END---' in data: break
-response = data.decode()
-if 'Debugger not active' not in response and '---END---' in response:
-    print('PASS: Got command response from active debugger')
-    print(response[:500])
-else:
-    print('FAIL:', repr(response))
+print('PASS: Connected')
+test(s, 'PING', 'PONG')
+test(s, 'STATUS', 'debugger=active')
+test(s, 'STATUS', 'mode=paused')
+test(s, 'REGS', 'EAX=')
+test(s, 'REGS', 'CS=')
+test(s, 'HELP', 'Debugger commands')
+test(s, 'BPLIST', '---END---')
+test(s, 'XYZZY', 'Unknown command')
 s.close()
-"
+" 2>&1 | grep -E "PASS|FAIL"
 ```
-Expected: `PASS: Got command response from active debugger` followed by help text.
+Expected: all PASS.
 
 **Step 4: Cleanup**
 ```bash

@@ -5,15 +5,20 @@
 
 #include <string>
 #include <cstring>
+#include <cstdio>
 #include "support.h"
 #include "logging.h"
 #include "setup.h"
 #include "control.h"
+#include "regs.h"
+#include "cpu.h"
 #include "../hardware/serialport/misc_util.h"
 
 /* Forward declarations — defined in debug.cpp */
 extern bool ParseCommand(char* str);
 extern bool IsDebuggerActive(void);
+extern bool IsDebuggerRunwatch(void);
+extern Bitu cycle_count;
 
 /* TCP state */
 static NETServerSocket* tcp_server = nullptr;
@@ -52,9 +57,53 @@ static void tcp_process_command(char* cmd) {
         return;
     }
 
+    /* Built-in STATUS — always available, reports debugger state */
+    if (strcasecmp(cmd, "STATUS") == 0) {
+        char buf[256];
+        bool active = IsDebuggerActive();
+        const char* mode = "off";
+        if (active && IsDebuggerRunwatch()) mode = "running";
+        else if (active) mode = "paused";
+        snprintf(buf, sizeof(buf),
+            "debugger=%s\n"
+            "mode=%s\n"
+            "cs=%04X\n"
+            "ip=%08X\n"
+            "cycles=%u\n"
+            "---END---\n",
+            active ? "active" : "inactive",
+            mode,
+            (unsigned)SegValue(cs),
+            (unsigned)reg_eip,
+            (unsigned)cycle_count);
+        tcp_send_string(buf);
+        return;
+    }
+
     /* Check if debugger is active */
     if (!IsDebuggerActive()) {
         tcp_send_string("ERROR: Debugger not active (press Alt+Pause or use -break-start)\n---END---\n");
+        return;
+    }
+
+    /* Built-in REGS — text register dump (DrawRegisters writes to ncurses, not DEBUG_ShowMsg) */
+    if (strcasecmp(cmd, "REGS") == 0) {
+        char buf[512];
+        snprintf(buf, sizeof(buf),
+            "EAX=%08X EBX=%08X ECX=%08X EDX=%08X\n"
+            "ESI=%08X EDI=%08X EBP=%08X ESP=%08X\n"
+            "EIP=%08X CS=%04X DS=%04X ES=%04X FS=%04X GS=%04X SS=%04X\n"
+            "CF=%u ZF=%u SF=%u OF=%u AF=%u PF=%u DF=%u IF=%u TF=%u\n"
+            "---END---\n",
+            reg_eax, reg_ebx, reg_ecx, reg_edx,
+            reg_esi, reg_edi, reg_ebp, reg_esp,
+            reg_eip,
+            (unsigned)SegValue(cs), (unsigned)SegValue(ds), (unsigned)SegValue(es),
+            (unsigned)SegValue(fs), (unsigned)SegValue(gs), (unsigned)SegValue(ss),
+            GETFLAG(CF)?1:0, GETFLAG(ZF)?1:0, GETFLAG(SF)?1:0, GETFLAG(OF)?1:0,
+            GETFLAG(AF)?1:0, GETFLAG(PF)?1:0, GETFLAG(DF)?1:0, GETFLAG(IF)?1:0,
+            GETFLAG(TF)?1:0);
+        tcp_send_string(buf);
         return;
     }
 

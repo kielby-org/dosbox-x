@@ -149,7 +149,28 @@ Other relevant config: `debuggerrun` in `[log]` — controls debugger start mode
 - Client sends: `COMMAND args\n`
 - Server responds: `response lines\n---END---\n`
 - No push notifications — client polls with `STATUS`
-- Testable with `telnet localhost 12345`
+- Testable with Python socket or telnet
+
+### Built-in TCP Commands (handled in debug_tcp.cpp, before ParseCommand)
+| Command | Requires Debugger | Description |
+|---------|-------------------|-------------|
+| `PING` | No | Connection test — returns `PONG` |
+| `STATUS` | No | Debugger state: `debugger=active\|inactive`, `mode=paused\|running\|off`, `cs=`, `ip=`, `cycles=` |
+| `REGS` | Yes | Register dump: EAX-ESP, EIP, segment regs, flags |
+
+### All Other Commands
+All other commands pass through to `ParseCommand()` — the full DOSBox-X debugger
+command set (105+ commands). Key ones:
+- `HELP` — command list
+- `BP seg:off` — set breakpoint
+- `BPINT intNr` — interrupt breakpoint
+- `BPLIST` — list breakpoints
+- `BPDEL nr` — delete breakpoint
+- `RUN` — resume execution
+- `CPU` / `FPU` — CPU/FPU info (via DEBUG_ShowMsg, captured)
+- `SR reg val` — set register
+- `C seg:off` / `D seg:off` — set code/data view
+- `MEMDUMP seg ofs num` — dump memory
 
 ## Ground Rules
 
@@ -244,6 +265,6 @@ start "DOSBox" bin\x64\Debug\dosbox-x.exe -defaultconf -console -set "log tcp_de
 - [x] Add to Makefile.am, VS project, and VS filters
 - [x] Verify CI green with stub
 - [x] Implement TCP listener — config `log tcp_debug_port`, single-client, response capture, PING, debugger-state-aware responses
-- [ ] Implement command routing (STATUS, REGS, BP, STEP, RUN)
+- [x] Implement command routing — STATUS, REGS as built-in TCP commands; all other debugger commands pass through ParseCommand
 - [ ] Implement input injection (SENDKEY, SENDMOUSE, SENDCLICK)
 - [ ] Build MCP server (Python, `mcp-server/` directory)

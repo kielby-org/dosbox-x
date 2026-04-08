@@ -135,13 +135,11 @@ Command-line override: `-set log:tcp_debug_port=12345` (or `debug:` if new secti
 - [x] Architecture designed — no threading needed, polls alongside getch()
 - [x] Protocol defined — plain text request-response
 - [x] Command set defined (see plan)
-
-### Next
-- [ ] Trigger CI on fork to verify baseline builds pass
-- [ ] Create `feature/tcp-debug` branch
-- [ ] Add stub `debug_tcp.cpp` + header (compiles, no functionality)
-- [ ] Add to Makefile.am and VS project
-- [ ] Verify CI green with stub
+- [x] Create `feature/tcp-debug` branch
+- [x] Trigger CI on fork to verify baseline builds pass (linux, vsbuild64, vsbuild32 enabled; others disabled to save minutes)
+- [x] Add stub `debug_tcp.cpp` + header (compiles, no functionality)
+- [x] Add to Makefile.am, VS project, and VS filters
+- [x] Verify CI green with stub (pending — CI triggered, local build verified)
 - [ ] Implement TCP listener (accept connection on configured port)
 - [ ] Implement command routing (STATUS, REGS, BP, STEP, RUN)
 - [ ] Implement input injection (SENDKEY, SENDMOUSE, SENDCLICK)

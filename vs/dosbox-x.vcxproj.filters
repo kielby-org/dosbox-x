@@ -825,6 +825,9 @@
     <ClCompile Include="..\src\debug\debug_win32.cpp">
       <Filter>Sources\debug</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\debug\debug_tcp.cpp">
+      <Filter>Sources\debug</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\dosbox.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
@@ -1971,6 +1974,9 @@
       <Filter>Sources\debug</Filter>
     </ClInclude>
     <ClInclude Include="..\src\debug\disasm_tables.h">
+      <Filter>Sources\debug</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\debug\debug_tcp.h">
       <Filter>Sources\debug</Filter>
     </ClInclude>
     <ClInclude Include="..\include\bios.h">

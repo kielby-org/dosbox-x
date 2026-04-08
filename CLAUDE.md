@@ -157,6 +157,9 @@ Other relevant config: `debuggerrun` in `[log]` — controls debugger start mode
 | `PING` | No | Connection test — returns `PONG` |
 | `STATUS` | No | Debugger state: `debugger=active\|inactive`, `mode=paused\|running\|off`, `cs=`, `ip=`, `cycles=` |
 | `REGS` | Yes | Register dump: EAX-ESP, EIP, segment regs, flags |
+| `SENDKEY <key> [DOWN\|UP]` | No | Inject keyboard event. Default: press+release. Keys: `a`-`z`, `0`-`9`, `f1`-`f12`, `enter`, `space`, `esc`, `leftshift`, `leftctrl`, `leftalt`, arrows, etc. |
+| `SENDCLICK <btn>` | No | Mouse click (press+release). `0`/`left`, `1`/`right`, `2`/`middle` |
+| `SENDMOUSE <xrel> <yrel>` | No | Relative mouse movement in pixels |
 
 ### All Other Commands
 All other commands pass through to `ParseCommand()` — the full DOSBox-X debugger
@@ -266,5 +269,5 @@ start "DOSBox" bin\x64\Debug\dosbox-x.exe -defaultconf -console -set "log tcp_de
 - [x] Verify CI green with stub
 - [x] Implement TCP listener — config `log tcp_debug_port`, single-client, response capture, PING, debugger-state-aware responses
 - [x] Implement command routing — STATUS, REGS as built-in TCP commands; all other debugger commands pass through ParseCommand
-- [ ] Implement input injection (SENDKEY, SENDMOUSE, SENDCLICK)
+- [x] Implement input injection — SENDKEY, SENDCLICK, SENDMOUSE; work regardless of debugger state
 - [ ] Build MCP server (Python, `mcp-server/` directory)

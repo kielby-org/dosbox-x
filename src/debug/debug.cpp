@@ -4761,6 +4761,7 @@ Bitu DEBUG_Loop(void) {
             DEBUG_DrawScreen();
         }
 
+        DEBUG_TCP_Poll();
         return old_loop();
     }
     else {

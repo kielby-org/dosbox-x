@@ -140,29 +140,41 @@ Output binary: `bin/x64/Debug/dosbox-x.exe`
 
 After building, verify the TCP debug interface works end-to-end:
 
-### 1. Start DOSBox-X with TCP debug enabled
+**Important:** The `-set` format uses spaces, not colons: `-set "log tcp_debug_port=12345"`
+
+### 1. Start DOSBox-X with TCP debug enabled and debugger active
 ```bash
-# From repo root — port 12345, start in debugger mode
-bin/x64/Debug/dosbox-x.exe -set log:tcp_debug_port=12345 -set log:debuggerrun=debugger
+# From repo root — port 12345, break into debugger at startup
+bin/x64/Debug/dosbox-x.exe -set "log tcp_debug_port=12345" -break-start
 ```
-DOSBox-X will open with the debugger window. The TCP listener should be active on port 12345.
+DOSBox-X will open with the debugger console. Look for `DEBUG_TCP: Listening on port 12345` in the log output.
+
+**Note:** TCP commands are only processed when the debugger loop is active (paused in debugger). Use `-break-start` to activate the debugger at startup, or press Alt+Pause during execution.
 
 ### 2. Connect from another terminal
 ```bash
-# Using netcat (or telnet)
-nc localhost 12345
+# Using Python (netcat/telnet may not be available on Windows)
+python -c "
+import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.settimeout(5)
+s.connect(('127.0.0.1', 12345))
+s.sendall(b'HELP\n')
+data = b''
+while True:
+    chunk = s.recv(4096)
+    if not chunk: break
+    data += chunk
+    if b'---END---' in data: break
+print(data.decode())
+s.close()
+"
 ```
 
-### 3. Send test commands
-```
-HELP
-```
-Expected: debugger help text followed by `---END---`
-
-```
-STATUS
-```
-Expected: register dump or status info followed by `---END---`
+### 3. Expected behavior
+- `HELP` → debugger help text followed by `---END---`
+- Any valid debugger command → output followed by `---END---`
+- Unknown command → `ERROR: Unknown command\n---END---`
 
 ### 4. Verify
 - Commands produce text responses terminated by `---END---\n`

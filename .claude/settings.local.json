@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git log:*)",
+      "Bash(grep -l \"msbuild\\\\|MSBuild\\\\|Visual Studio\" /c/Projects/dosbox-x/README*)",
+      "Bash(grep -r \"msbuild\\\\|MSBuild\" /c/Projects/dosbox-x/*.md /c/Projects/dosbox-x/*.txt)",
+      "Bash(where msbuild:*)",
+      "Read(//c/Program Files/Microsoft Visual Studio/**)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft Visual Studio/**)",
+      "Bash(gh --version)"
+    ]
+  }
+}
